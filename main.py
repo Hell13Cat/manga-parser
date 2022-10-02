@@ -10,6 +10,20 @@ import time
 import pickle
 import os
 import ctypes
+import json
+
+def gen_json(folders, title, author, artist, description, genre_list, status):
+    datas = {
+	"title": title,
+	"author": author,
+	"artist": artist,
+	"description": description.replace("\n", "\\n"),
+	"genre": genre_list,
+	"status": status,
+	"_status values": ["0 = Unknown", "1 = Ongoing", "2 = Completed", "3 = Licensed", "4 = Publishing finished", "5 = Cancelled", "6 = On hiatus"]
+    }
+    json.dump(datas, open(folders+"\\details.json", "w", encoding='utf-8'), ensure_ascii=False, indent=4)
+
 
 def make_folder(folder):
     if not os.path.isdir(os.getcwd()+"\\"+folder):
@@ -90,6 +104,31 @@ for url_get in urls_gets:
         driver.get(url_get)
         driver.save_screenshot("dw\(" + url_get.split("//")[1].split("/")[0] + ") " + url_get.split("/")[-1].split("?")[0] + ".png")
         if url_domain == "hentailib.me" or url_domain == "yaoilib.me" or url_domain == "mangalib.me":
+            data_res = {}
+            elem_info = driver.find_element_by_class_name("media-info-list")
+            elems_info = elem_info.find_elements_by_class_name("media-info-list__item")
+            for dd in elems_info:
+                data_res[dd.find_element_by_class_name("media-info-list__title").text] = dd.find_element_by_class_name("media-info-list__value").text
+            data_res["name"] = driver.find_element_by_class_name("media-name__body").text.replace("\n", " | ")
+            status_a = {"None":"0", "Продолжается":"1", "Завершен":"2", "Заморожен":"5", "Заброшен":"6 = On hiatus"}
+            tag_info = driver.find_elements_by_class_name("media-tag-item")
+            tag_list = []
+            for gg in tag_info:
+                tag_list.append(gg.text)
+            for kk in ["name", "Автор", "Художник"]:
+                if kk not in data_res.keys():
+                    data_res[kk] = "None"
+            if "Статус перевода" not in data_res.keys():
+                    data_res["Статус перевода"] = "None"
+            gen_json(
+                dw_folder_root,
+                data_res["name"],
+                data_res["Автор"],
+                data_res["Художник"],
+                driver.find_element_by_class_name("media-description").text,
+                tag_list,
+                status_a[data_res["Статус перевода"]]
+            )
             action_chains = ActionChains(driver)
             all_button = driver.find_elements_by_tag_name("li")
             manga_id = url_get.split("/")[-1].split("?")[0]
@@ -108,6 +147,7 @@ for url_get in urls_gets:
                         pages.append(str(ii.get_attribute("href")).split("?")[0])
             pages = list(dict.fromkeys(pages))
             pprint(pages, "b")
+            first_img = 1
             for page_cur in pages:
                 driver.get(page_cur)
                 name_ch = page_cur.split("/")[-2].replace("v", "") + "-" + page_cur.split("/")[-1].replace("c", "")
@@ -169,6 +209,15 @@ for url_get in urls_gets:
                     cookie_req[dd["name"]] = dd["value"]
                 count_img = 1
                 for img_url in list_img:
+                    if first_img == 1:
+                        file_name_head = "cover." + img_url.split("/")[-1].split(".")[-1]
+                        pprint("[Downloading] "+file_name_head, "g")
+                        req = requests.get(img_url, cookies=cookie_req, headers={'referer': url_get})
+                        file_name = dw_folder_root + "/" + file_name_head
+                        file = open(file_name, "wb")
+                        file.write(req.content)
+                        file.close()
+                        first_img = 0
                     file_name_head = get_name(count_img, img_url.split("/")[-1])
                     pprint("[Downloading] "+file_name_head, "g")
                     req = requests.get(img_url, cookies=cookie_req, headers={'referer': page_cur})
