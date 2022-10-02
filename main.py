@@ -120,12 +120,16 @@ for url_get in urls_gets:
                     data_res[kk] = "None"
             if "Статус перевода" not in data_res.keys():
                     data_res["Статус перевода"] = "None"
+            try:
+                desc_info = driver.find_element_by_class_name("media-description").text
+            except:
+                desc_info = "None"
             gen_json(
                 dw_folder_root,
                 data_res["name"],
                 data_res["Автор"],
                 data_res["Художник"],
-                driver.find_element_by_class_name("media-description").text,
+                desc_info,
                 tag_list,
                 status_a[data_res["Статус перевода"]]
             )
